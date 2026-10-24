@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Currency Converter</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    padding: 16px;
+  }
+  .card {
+    background: #fff;
+    width: 100%;
+    max-width: 420px;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.3);
+  }
+  h1 { font-size: 1.6rem; text-align: center; color: #1e3c72; margin-bottom: 20px; }
+  label { display: block; font-size: .8rem; font-weight: 600; color: #555; margin: 14px 0 6px; }
+  input, select {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    border: 2px solid #dde3ee;
+    border-radius: 10px;
+    outline: none;
+    background: #fff;
+  }
+  input:focus, select:focus { border-color: #2a5298; }
+  .row { display: flex; gap: 10px; align-items: flex-end; }
+  .row > div { flex: 1; }
+  #swap {
+    width: 46px; height: 46px;
+    border: none; border-radius: 50%;
+    background: #2a5298; color: #fff;
+    font-size: 1.2rem; cursor: pointer;
+    flex: none;
+    transition: transform .3s;
+  }
+  #swap:hover { transform: rotate(180deg); }
+  #result {
+    margin-top: 22px;
+    padding: 18px;
+    text-align: center;
+    background: #f0f4fb;
+    border-radius: 12px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e3c72;
+  }
+  #rate { display: block; margin-top: 6px; font-size: .85rem; font-weight: 400; color: #666; }
+  #status { margin-top: 14px; text-align: center; font-size: .75rem; color: #888; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>💱 Currency Converter</h1>
+
+    <label for="amount">Amount</label>
+    <input type="number" id="amount" value="1" min="0" step="any">
+
+    <div class="row">
+      <div>
+        <label for="from">From</label>
+        <select id="from"></select>
+      </div>
+      <button id="swap" title="Swap">⇄</button>
+      <div>
+        <label for="to">To</label>
+        <select id="to"></select>
+      </div>
+    </div>
+
+    <div id="result">—<span id="rate"></span></div>
+    <div id="status">Loading rates…</div>
+  </div>
+
+<script>
+  const currencies = {
+    USD: { name: "US Dollar", symbol: "$" },
+    EUR: { name: "Euro", symbol: "€" },
+    GBP: { name: "British Pound", symbol: "£" },
+    JPY: { name: "Japanese Yen", symbol: "¥" },
+    INR: { name: "Indian Rupee", symbol: "₹" }
+  };
+
+  // Fallback rates (per 1 USD) used if the live API is unreachable
+  let rates = { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 150, INR: 83 };
+
+  const $ = id => document.getElementById(id);
+  const amountEl = $("amount"), fromEl = $("from"), toEl = $("to");
+
+  for (const code in currencies) {
+    const label = `${code} — ${currencies[code].name}`;
+    fromEl.add(new Option(label, code));
+    toEl.add(new Option(label, code));
+  }
+  fromEl.value = "USD";
+  toEl.value = "INR";
+
+  function convert() {
+    const amt = parseFloat(amountEl.value);
+    const from = fromEl.value, to = toEl.value;
+    if (isNaN(amt) || amt < 0) {
+      $("result").innerHTML = '—<span id="rate"></span>';
+      return;
+    }
+    const rate = rates[to] / rates[from];
+    const out = (amt * rate).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    $("result").innerHTML =
+      `${currencies[to].symbol}${out} ${to}` +
+      `<span id="rate">1 ${from} = ${rate.toFixed(4)} ${to}</span>`;
+  }
+
+  async function loadRates() {
+    try {
+      const res = await fetch("https://open.er-api.com/v6/latest/USD");
+      const data = await res.json();
+      if (data.result !== "success") throw new Error();
+      for (const code in currencies) rates[code] = data.rates[code];
+      $("status").textContent = "Live rates · updated " + new Date(data.time_last_update_utc).toLocaleDateString();
+    } catch {
+      $("status").textContent = "Offline — showing approximate rates";
+    }
+    convert();
+  }
+
+  $("swap").addEventListener("click", () => {
+    [fromEl.value, toEl.value] = [toEl.value, fromEl.value];
+    convert();
+  });
+  [amountEl, fromEl, toEl].forEach(el => el.addEventListener("input", convert));
+
+  convert();
+  loadRates();
+</script>
+</body>
+</html>
